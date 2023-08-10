@@ -59,5 +59,4 @@ def endpoint():
 
 
 if __name__ == '__main__':
-    initializeConversation()
     app.run(debug=False)

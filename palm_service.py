@@ -2,21 +2,9 @@
 import json
 from cred import api_key
 from youtube_search import YoutubeSearch
+import google.generativeai as palm
 
-def initializeConversation():
-    import google.generativeai as palm
-    palm.configure(api_key = api_key)
-
-    # Initialize thread
-    system = "Act as a playlist generator. Respond to requests with a list of songs in the following format: Title | Artist. List the songs in a bulleted lists. Preferably these songs are available on YouTube. Strict adherence to this format is required the song title must always come first followed by the artists seperated by a pipe symbol rather than the word 'by'. Multiple artists should be separated by a comma."
-
-    PaLM = palm.chat(
-        context=system,
-        messages="Confirm ready.",
-        model="models/chat-bison-001")
-    
-    # Return the bot
-    return PaLM
+palm.configure(api_key = api_key)
 
 # Define a song class
 class Song:
@@ -28,14 +16,23 @@ class Song:
 
 def search_youtube(query):
     results = YoutubeSearch(query + 'VEVO Audio', max_results=1).to_dict()
+    # print(results)
     if results:
-        video_id = results[0]['id']
+        # Get the id of the first result with a duration under 12 minutes
+        video_id = None
+        for result in results:
+            # Under 13 minutes
+            if result['duration'].count(':') == 1 and int(result['duration'].split(':')[0]) < 13:
+                video_id = result['id']
+
         # print('Song located...')
         return video_id
     else:
         return None
 
 def get_links(songs):
+
+    songs_with_links = []
 
     for song_object in songs:
         song = song_object.song
@@ -49,20 +46,39 @@ def get_links(songs):
         
         if (video_id):
             song_object.song_link = 'https://www.youtube.com/watch?v=' + video_id
+
+            # Add the song to the list
+            songs_with_links.append(song_object)
         # No link found    
         else:
             # Remove the song
             songs.remove(song_object)
+    
+    return songs_with_links
 
+def generateText(prompt):
+    system = "Act as a playlist generator. Respond to requests with a list of songs in the following format: '  * Song Title | Artist Names'. List the songs in a bulleted lists. Strict adherence to this format is required the song title must always come first followed by the artists seperated by a pipe symbol rather than the word 'by'. Multiple artists should be separated by a comma."
+
+    completion = palm.generate_text(
+    model='models/text-bison-001',
+    prompt= system + ' ' + prompt,
+    temperature=0.7,
+    # The maximum length of the response
+    max_output_tokens=800
+    )
+
+    return completion.result
 
 
 def prompt(prompt):
-    bot = initializeConversation()
+    # bot = initializeConversation()
 
-    if (bot == None):
-        return None
+    # if (bot == None):
+    #     return None
     
-    reply = bot.reply('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title" | "Artist").').last
+    # reply = bot.reply('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title" | "Artist").').last
+
+    reply = generateText('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title of the Song" | "Artist").')
 
     # print(reply)
 
@@ -98,14 +114,31 @@ def prompt(prompt):
                         new_song = Song(song, artist, None, None)
                         # Add the song to the list
                         songs.append(new_song)
-                        print(song + ' by ' + artist)
+                        print(song + ' - ' + artist)
     except Exception as e:
         print(e)
         return None
     
-    get_links(songs)
+    songs = get_links(songs)
+
+    # Create a link to a preview of the playlist
+    playlist_link = 'https://www.youtube.com/watch_videos?video_ids='
+
+    for song in songs:
+        link = song.song_link
+        # Remove preface to isolate the video id
+        link = link.replace('https://www.youtube.com/watch?v=', '')
+        # Ad video to playlist preview link
+        playlist_link += link + ','
+    
+    # Remove the last comma
+    playlist_link = playlist_link[:-1]
+
+    print('\nPlaylist preview: ' + playlist_link + '\n')
 
     # Convert songs to JSON format using __dict__
     songs = [song.__dict__ for song in songs]
+
+    # TODO: Create a YouTube Playlist using this format: https://www.youtube.com/watch_videos?video_ids=fOe8aEqoN_M,qfZ2P2sWLZw,cew0MuXESGw,1bLlmKzIx0A,CZzcVs8tNfE,O4nHFQMeGo8
 
     return songs
