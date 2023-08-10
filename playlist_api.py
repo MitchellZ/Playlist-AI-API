@@ -30,6 +30,7 @@ def start():
 
 def endpoint():
     message = request.args.get('message')  # Retrieve the 'message' parameter from the query string
+    print('Processing request: ' + message + '\n')
 
     if (message == None):
         # Error
@@ -50,12 +51,13 @@ def endpoint():
             return jsonify(response), 200
         else:
             # Error
+            print('Error: Unable to generate playlist.\n')
             response = {
-                'message': 'Unable to generate playlist!'
+                'message': 'Unable to generate playlist.'
             }
-            return jsonify(response), 501
+            return jsonify(response), 500
 
 
 if __name__ == '__main__':
     initializeConversation()
-    app.run(debug=True)
+    app.run(debug=False)
