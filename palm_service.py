@@ -1,5 +1,8 @@
 # Import PaLM API Key from cred.py
 import json
+from bs4 import BeautifulSoup
+
+import requests
 from cred import api_key
 from youtube_search import YoutubeSearch
 import google.generativeai as palm
@@ -56,6 +59,81 @@ def get_links(songs):
     
     return songs_with_links
 
+def fetch_album_art(title, artist):
+    # Assign the query
+    query = title + ' by ' + artist
+
+    # Step 1: Google search
+    google_url = f"https://www.google.com/search?q={query}+site:wikipedia.org"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(google_url, headers=headers)
+    response.raise_for_status()
+
+    # Step 2: Parse Google search results to find Wikipedia link
+    soup = BeautifulSoup(response.content, "html.parser")
+    wikipedia_link = None
+
+    # Assign everything after the last instance of the word by to artist
+    artist = query.split("by")[query.count("by")].strip()
+
+    # print("Searching for: " + title + " by " + artist)
+
+    for link in soup.find_all("a"):
+        href = link.get("href")
+        text = link.get_text()
+        # Look for wikipedia links not about the artists
+        if 'wikipedia.org' in text.lower():
+            # print(text)
+            # print("Checking for artist: " + artist)
+            if artist.lower() not in text.lower():
+                # print("Artist " + artist + " is not in it.")
+                wikipedia_link = href.split("&")[0].replace("/url?q=", "")
+                break
+    
+    if not wikipedia_link:
+        # No Wikipedia link found in Google search results
+        # print("No Wikipedia link found in Google search results")
+        return None
+
+    # Step 3: Extract image from the infobox on Wikipedia page
+    wikipedia_response = requests.get(wikipedia_link, headers=headers)
+    wikipedia_soup = BeautifulSoup(wikipedia_response.content, "html.parser")
+
+    # Check if the Wikipedia page is about a person
+    infobox = wikipedia_soup.find("table", class_="infobox")  # You might need to adjust the class name based on Wikipedia's HTML structure
+    
+    if infobox:
+        infobox_labels = infobox.find_all("th", class_="infobox-label")
+        for label in infobox_labels:
+            if "Born" in label.text or "Died" in label.text:
+                # The Wikipedia page is about a person, abort
+                # print("The Wikipedia page is about a person, abort from: " + wikipedia_link)
+                return None
+            
+    infobox = wikipedia_soup.find("table", class_="infobox")  # You might need to adjust the class name based on Wikipedia's HTML structure
+    
+    if infobox:
+        infobox_image = infobox.find("img")
+        if infobox_image:
+            image_url = infobox_image.get("src")
+            return image_url
+        else:
+            # No image found in the infobox
+            # print("No image found in the infobox")
+            return None
+    else:
+        # No infobox found on the Wikipedia page
+        # print("No infobox found on the Wikipedia page")
+        return None
+
+def get_art(songs):
+    # Loop through each song in the list
+    for song in songs:
+        # Fetch the album art
+        song.album_art = fetch_album_art(song.song, song.artist)
+        # Assign the album art to the song object
+        song.album_art = song.album_art
+
 def generateText(prompt):
     system = "Act as a playlist generator. Respond to requests with a list of songs in the following format: '  * Song Title | Artist Names'. List the songs in a bulleted lists. Strict adherence to this format is required the song title must always come first followed by the artists seperated by a pipe symbol rather than the word 'by'. Multiple artists should be separated by a comma."
 
@@ -77,7 +155,7 @@ def prompt(prompt):
     #     return None
     
     # reply = bot.reply('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title" | "Artist").').last
-
+    print('Generating playlist...')
     reply = generateText('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title of the Song" | "Artist").')
 
     # print(reply)
@@ -114,12 +192,25 @@ def prompt(prompt):
                         new_song = Song(song, artist, None, None)
                         # Add the song to the list
                         songs.append(new_song)
-                        print(song + ' - ' + artist)
+                        # print(song + ' - ' + artist)
     except Exception as e:
         print(e)
         return None
+
+    # Print the number of songs
+    print('Generated ' + str(len(songs)) + ' songs.')
     
+    print('Sourcing links...')
     songs = get_links(songs)
+
+    # Print the number of songs
+    print('Found ' + str(len(songs)) + ' links.')
+
+    print('Sourcing cover art...')
+    song = get_art(songs)
+    print('Done.')
+
+
 
     # Create a link to a preview of the playlist
     playlist_link = 'https://www.youtube.com/watch_videos?video_ids='
