@@ -155,7 +155,8 @@ def prompt(prompt):
                     # Get the artist
                     artist = line.split('|')[1].strip()
                     # Ensure song is not header/example
-                    if(song != 'Title'):
+                    print(song.lower())
+                    if(song.lower() != 'title' and song.lower() != 'song title' and song.lower() != 'title of the song'):
                         # Define a song object
                         new_song = Song(song, artist, None, None)
                         # Add the song to the list

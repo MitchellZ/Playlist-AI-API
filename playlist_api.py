@@ -6,17 +6,18 @@ from palm_service import *
 app = Flask(__name__)
 
 # Start Enpoint
-@app.route('/start', methods=['GET'])
+@app.route('/ping', methods=['GET'])
 
-def start():
+def ping():
     # Test value
     (test) = True
 
     if (test):
         # Success
         response = {
-        'message': 'Success!'
+        'message': 'Pong!'
         }
+        print('Received ping.\n')
         return jsonify(response), 200
 
     # Error
@@ -26,9 +27,9 @@ def start():
     return jsonify(response), 500
 
 # Example Endpoint
-@app.route('/endpoint', methods=['GET'])
+@app.route('/query', methods=['GET'])
 
-def endpoint():
+def query():
     message = request.args.get('message')  # Retrieve the 'message' parameter from the query string
     print('Processing request: ' + message + '\n')
 
@@ -59,4 +60,4 @@ def endpoint():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
