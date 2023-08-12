@@ -1,13 +1,12 @@
 # Import PaLM API Key from cred.py
-import json
 from bs4 import BeautifulSoup
 
 import requests
-from cred import api_key
+from cred import palm_api_key, last_fm_api_key
 from youtube_search import YoutubeSearch
 import google.generativeai as palm
 
-palm.configure(api_key = api_key)
+palm.configure(api_key = palm_api_key)
 
 # Define a song class
 class Song:
@@ -59,80 +58,54 @@ def get_links(songs):
     
     return songs_with_links
 
-def fetch_album_art(title, artist):
-    # Assign the query
-    query = title + ' by ' + artist
+def fetch_album_art(track_name, artist_name):
+    # Assign API Key
+    api_key = last_fm_api_key
 
-    # Step 1: Google search
-    google_url = f"https://www.google.com/search?q={query}+site:wikipedia.org"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(google_url, headers=headers)
-    response.raise_for_status()
+    # Search for the track by title and artist
+    search_url = f'http://ws.audioscrobbler.com/2.0/?method=track.search&track={track_name}&artist={artist_name}&api_key={api_key}&format=json'
+    response = requests.get(search_url)
+    data = response.json()
 
-    # Step 2: Parse Google search results to find Wikipedia link
-    soup = BeautifulSoup(response.content, "html.parser")
-    wikipedia_link = None
+    # Check if the search returned any results
+    if 'results' in data and 'trackmatches' in data['results'] and 'track' in data['results']['trackmatches']:
+        tracks = data['results']['trackmatches']['track']
+        
+        # Check if any tracks were returned
+        if tracks:
+            # Get the first track result
+            track = tracks[0]
 
-    # Assign everything after the last instance of the word by to artist
-    artist = query.split("by")[query.count("by")].strip()
+            # Get the track's information
+            track_name = track['name']
+            artist_name = track['artist']
 
-    # print("Searching for: " + title + " by " + artist)
+            # Get track info to retrieve an image
+            track_info_url = f'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&track={track_name}&artist={artist_name}&api_key={api_key}&format=json'
+            response = requests.get(track_info_url)
+            track_info = response.json()
 
-    for link in soup.find_all("a"):
-        href = link.get("href")
-        text = link.get_text()
-        # Look for wikipedia links not about the artists
-        if 'wikipedia.org' in text.lower():
-            # print(text)
-            # print("Checking for artist: " + artist)
-            if artist.lower() not in text.lower():
-                # print("Artist " + artist + " is not in it.")
-                wikipedia_link = href.split("&")[0].replace("/url?q=", "")
-                break
-    
-    if not wikipedia_link:
-        # No Wikipedia link found in Google search results
-        # print("No Wikipedia link found in Google search results")
-        return None
-
-    # Step 3: Extract image from the infobox on Wikipedia page
-    wikipedia_response = requests.get(wikipedia_link, headers=headers)
-    wikipedia_soup = BeautifulSoup(wikipedia_response.content, "html.parser")
-
-    # Check if the Wikipedia page is about a person
-    infobox = wikipedia_soup.find("table", class_="infobox")  # You might need to adjust the class name based on Wikipedia's HTML structure
-    
-    if infobox:
-        infobox_labels = infobox.find_all("th", class_="infobox-label")
-        for label in infobox_labels:
-            if "Born" in label.text or "Died" in label.text:
-                # The Wikipedia page is about a person, abort
-                # print("The Wikipedia page is about a person, abort from: " + wikipedia_link)
-                return None
-            
-    infobox = wikipedia_soup.find("table", class_="infobox")  # You might need to adjust the class name based on Wikipedia's HTML structure
-    
-    if infobox:
-        infobox_image = infobox.find("img")
-        if infobox_image:
-            image_url = infobox_image.get("src")
-            return image_url
+            # Check if track info contains image data
+            if 'track' in track_info and 'album' in track_info['track'] and 'image' in track_info['track']['album']:
+                images = track_info['track']['album']['image']
+                # Get the largest available image (usually the last one)
+                image_url = images[-1]['#text']
+                return image_url
         else:
-            # No image found in the infobox
-            # print("No image found in the infobox")
             return None
     else:
-        # No infobox found on the Wikipedia page
-        # print("No infobox found on the Wikipedia page")
         return None
 
 def get_art(songs):
-    # Loop through each song in the list
+    # Loop through each song in the list and iterate through the proxies by poping them off
     for song in songs:
         # Fetch the album art
-        song.album_art = fetch_album_art(song.song, song.artist)
-        # Assign the album art to the song object
-        song.album_art = song.album_art
+        try:
+            song.album_art = fetch_album_art(song.song, song.artist)
+            # Assign the album art to the song object
+            song.album_art = song.album_art
+        except Exception as e:
+            print('Error fetching album art.')
 
 def generateText(prompt):
     system = "Act as a playlist generator. Respond to requests with a list of songs in the following format: '  * Song Title | Artist Names'. List the songs in a bulleted lists. Strict adherence to this format is required the song title must always come first followed by the artists seperated by a pipe symbol rather than the word 'by'. Multiple artists should be separated by a comma."
@@ -149,12 +122,7 @@ def generateText(prompt):
 
 
 def prompt(prompt):
-    # bot = initializeConversation()
 
-    # if (bot == None):
-    #     return None
-    
-    # reply = bot.reply('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title" | "Artist").').last
     print('Generating playlist...')
     reply = generateText('I want to hear: ' + prompt + 'Please generate a playlist in the predefined format ("Title of the Song" | "Artist").')
 
