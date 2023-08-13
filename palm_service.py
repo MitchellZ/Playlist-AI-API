@@ -20,7 +20,7 @@ def search_youtube(query):
     results = YoutubeSearch(query + 'VEVO Audio', max_results=1).to_dict()
     # print(results)
     if results:
-        # Get the id of the first result with a duration under 12 minutes
+        # Get the id of the first result with a duration under 13 minutes
         video_id = None
         for result in results:
             # Under 13 minutes
