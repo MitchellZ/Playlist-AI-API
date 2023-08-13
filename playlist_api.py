@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 # Import PaLM Service functions
 from palm_service import *
 
 app = Flask(__name__)
+CORS(app)
 
 # Start Enpoint
 @app.route('/ping', methods=['GET'])
