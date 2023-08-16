@@ -62,6 +62,11 @@ def fetch_album_art(track_name, artist_name):
     # Assign API Key
     api_key = last_fm_api_key
 
+    # Get only the first artist to increase reliability, delimited by commas
+    if ',' in artist_name:
+        artist_name = artist_name.split(',')[0]
+
+
     # Search for the track by title and artist
     search_url = f'http://ws.audioscrobbler.com/2.0/?method=track.search&track={track_name}&artist={artist_name}&api_key={api_key}&format=json'
     response = requests.get(search_url)
