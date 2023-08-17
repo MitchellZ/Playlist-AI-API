@@ -33,6 +33,10 @@ def ping():
 
 def query():
     message = request.args.get('message')  # Retrieve the 'message' parameter from the query string
+
+    # Replace hashtags with spaces
+    message = message.replace('#', ' ')
+    
     print('Processing request: ' + message + '\n')
 
     if (message == None):
