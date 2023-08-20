@@ -2,6 +2,8 @@
 
 Welcome to the AI Playlist API, a work in progress API that harnesses the power of Google's Pathways Language Model (PaLM) to generate music playlists from user requests using natural language. This API serves as the backend for Apollo Music, providing the intelligence to create curated playlists based on natural language prompts.
 
+Looking for a user-friendly way to interact with the AI Playlist API and explore the curated playlists? Check out [Apollo Music](https://github.com/MitchellZ/Apollo-Music), a front-end application that seamlessly integrates with this API to enhance your music discovery experience.
+
 ## Introduction
 
 This API is designed to leverage the capabilities of Google's Pathways Language Model to generate music playlists that cater to user preferences expressed in natural language. It functions as an integral part of the Apollo Music project, enhancing the music discovery experience for users.
